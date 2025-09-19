@@ -1,131 +1,141 @@
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
+const sendEmail = require("../utils/sendEmail");
 
-// Helper: Generate JWT
-const generateToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+// Helper to generate token
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: "30d",
+  });
+};
 
-// --------------------
-// Auth Controllers
-// --------------------
-
-// @desc    Register user
+// 📌 Register
 exports.register = async (req, res) => {
-  const { name, email, password } = req.body;
   try {
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
-    }
+    const { name, email, password } = req.body;
+    let user = await User.findOne({ email });
+    if (user) return res.status(400).json({ message: "User already exists" });
 
-    const user = await User.create({ name, email, password });
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      token: generateToken(user._id),
-    });
+    user = await User.create({ name, email, password });
+    const token = generateToken(user._id);
+
+    res.status(201).json({ user, token });
   } catch (err) {
-    res.status(500).json({ message: "Registration failed", error: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Login user
+// 📌 Login
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
   try {
+    const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (user && (await user.matchPassword(password))) {
-      res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        token: generateToken(user._id),
-      });
-    } else {
-      res.status(401).json({ message: "Invalid email or password" });
-    }
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+
+    const token = generateToken(user._id);
+    res.json({ user, token });
   } catch (err) {
-    res.status(500).json({ message: "Login failed", error: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Get current user
+// 📌 Get current user
 exports.getCurrentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
+    const user = await User.findById(req.user.id).select("-password");
     res.json({ user });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// --------------------
-// Address Controllers
-// --------------------
-
-// @desc    Add new address
-exports.addAddress = async (req, res) => {
-  const { name, street, city, state, zip, phone } = req.body;
-  if (!name || !street || !city || !state || !zip || !phone) {
-    return res.status(400).json({ message: "All address fields are required" });
-  }
+// 📌 Change password
+exports.changePassword = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
-    user.addresses.push({ name, street, city, state, zip, phone });
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const isMatch = await bcrypt.compare(req.body.oldPassword, user.password);
+    if (!isMatch) return res.status(400).json({ message: "Old password is incorrect" });
+
+    user.password = req.body.newPassword;
     await user.save();
-    res.json({ message: "Address added", addresses: user.addresses });
+
+    res.json({ message: "Password changed successfully" });
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Failed to add address", error: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Delete address
-exports.deleteAddress = async (req, res) => {
+// 📌 Forgot Password
+exports.forgotPassword = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
-    user.addresses = user.addresses.filter(
-      (addr) => addr._id.toString() !== req.params.id
-    );
-    await user.save();
-    res.json({ message: "Address deleted", addresses: user.addresses });
+    const user = await User.findOne({ email: req.body.email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found with this email" });
+    }
+
+    // 🔑 Generate reset token
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false });
+
+    // 🔗 Reset URL
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+
+    const message = `
+      <h2>Password Reset Request</h2>
+      <p>Click below to reset your password:</p>
+      <a href="${resetUrl}" target="_blank">${resetUrl}</a>
+    `;
+
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Password Reset",
+        html: message,
+      });
+
+      res.json({ message: "Reset link sent to email" });
+    } catch (error) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+      res.status(500).json({ message: "Email could not be sent" });
+    }
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Failed to delete address", error: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// @desc    Update address
-exports.updateAddress = async (req, res) => {
-  const { id } = req.params;
-  const { name, street, city, state, zip, phone } = req.body;
+// 📌 Reset Password
+exports.resetPassword = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
-    const address = user.addresses.id(id);
-    if (!address) return res.status(404).json({ message: "Address not found" });
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(req.params.token)
+      .digest("hex");
 
-    address.name = name || address.name;
-    address.street = street || address.street;
-    address.city = city || address.city;
-    address.state = state || address.state;
-    address.zip = zip || address.zip;
-    address.phone = phone || address.phone;
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
 
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
     await user.save();
-    res.json({ message: "Address updated", addresses: user.addresses });
+
+    res.json({ message: "Password reset successful" });
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Failed to update address", error: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 };
-
-// --------------------
-// Password controllers (forgot/reset/change) go here if you already had them
-// --------------------
