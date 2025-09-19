@@ -16,7 +16,7 @@ const app = express();
 
 // Apply CORS middleware first
 app.use(cors({
-  origin: ["https://www.aaritjewels.com","http://localhost:5173"],
+  origin: ["https://www.aaritjewels.com/","http://localhost:5173"],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

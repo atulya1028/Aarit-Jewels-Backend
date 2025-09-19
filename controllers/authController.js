@@ -87,7 +87,7 @@ exports.forgotPassword = async (req, res) => {
     console.log("🌍 CLIENT_URL_PROD =", process.env.CLIENT_URL_PROD);
 
     // Build reset URL with fallback
-    const resetUrl = `${process.env.CLIENT_URL_PROD || "http://localhost:3000"}/reset-password/${resetToken}`;
+    const resetUrl = `${process.env.CLIENT_URL_PROD || "http://localhost:5173"}/reset-password/${resetToken}`;
 
     console.log("🔗 Reset URL:", resetUrl);
 
