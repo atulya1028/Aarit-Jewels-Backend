@@ -74,23 +74,18 @@ exports.changePassword = async (req, res) => {
 
 // 📌 Forgot Password
 exports.forgotPassword = async (req, res) => {
-  console.log("🔑 forgotPassword called with email:", req.body.email);
-
   try {
     const user = await User.findOne({ email: req.body.email });
     if (!user) {
-      console.log("❌ forgotPassword: No user found with email:", req.body.email);
       return res.status(404).json({ message: "User not found with this email" });
     }
 
     // 🔑 Generate reset token
     const resetToken = user.getResetPasswordToken();
     await user.save({ validateBeforeSave: false });
-    console.log("✅ forgotPassword: Generated reset token:", resetToken);
 
-    // 🔗 Reset URL
-    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-    console.log("🔗 forgotPassword: Reset URL:", resetUrl);
+    // 🔗 Reset URL (frontend)
+    const resetUrl = `${process.env.CLIENT_URL_PROD}/reset-password/${resetToken}`;
 
     const message = `
       <h2>Password Reset Request</h2>
@@ -98,28 +93,19 @@ exports.forgotPassword = async (req, res) => {
       <a href="${resetUrl}" target="_blank">${resetUrl}</a>
     `;
 
-    try {
-      console.log("📧 forgotPassword: Sending email to:", user.email);
-      await sendEmail({
-        to: user.email,
-        subject: "Password Reset",
-        html: message,
-      });
-      console.log("✅ forgotPassword: Email sent successfully to:", user.email);
+    await sendEmail({
+      to: user.email,
+      subject: "Password Reset - Aarit Jewels",
+      html: message,
+    });
 
-      res.json({ message: "Reset link sent to email" });
-    } catch (error) {
-      console.error("❌ forgotPassword: Email sending failed:", error.message);
-      user.resetPasswordToken = undefined;
-      user.resetPasswordExpire = undefined;
-      await user.save({ validateBeforeSave: false });
-      return res.status(500).json({ message: "Email could not be sent" });
-    }
-  } catch (err) {
-    console.error("❌ forgotPassword: Server error:", err);
-    res.status(500).json({ message: "Server error" });
+    res.json({ message: "Reset link sent to email" });
+  } catch (error) {
+    console.error("ForgotPassword Error:", error);
+    res.status(500).json({ message: "Email could not be sent" });
   }
 };
+
 
 // 📌 Reset Password
 exports.resetPassword = async (req, res) => {
