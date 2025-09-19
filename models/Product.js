@@ -1,18 +1,21 @@
 const mongoose = require("mongoose");
 
-const productSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  description: String,
-  price: { type: Number, required: true },
-  category: {
-    type: String,
-    enum: ["Earrings", "Bracelets", "Pendants", "Necklaces"],
-    default: "Earrings",
+const productSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    description: String,
+    price: { type: Number, required: true },
+    category: {
+      type: String,
+      enum: ["Earrings", "Bracelets", "Pendants", "Necklaces"],
+      default: "Earrings",
+    },
+    images: [String], // Cloudinary URLs
+    discount: { type: Number, default: 0 },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // ✅ no longer required
   },
-  images: [String], // Cloudinary URLs
-  discount: { type: Number, default: 0 },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-}, { timestamps: true });
+  { timestamps: true }
+);
 
 productSchema.virtual("imageUrl").get(function () {
   return this.images?.length > 0 ? this.images[0] : "";

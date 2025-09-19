@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true, minlength: 6 },
+  isAdmin: { type: Boolean, default: false }, // 👈 Added for admin access
   addresses: [
     {
       name: String,
@@ -18,7 +19,7 @@ const userSchema = new mongoose.Schema({
   ],
   resetPasswordToken: String,
   resetPasswordExpire: Date,
-});
+}, { timestamps: true }); // 👈 Add timestamps for createdAt/updatedAt
 
 // 🔑 Encrypt password before save
 userSchema.pre("save", async function (next) {
