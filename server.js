@@ -10,24 +10,24 @@ const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const orderRoutes = require('./routes/orderRoutes');
-const couponRoutes = require('./routes/couponRoutes'); // ✅ Added
+const couponRoutes = require('./routes/couponRoutes');
 
 const app = express();
 
-// Apply CORS middleware first
+// ✅ Fix CORS origins
 app.use(cors({
-  origin: ["https://www.aaritjewels.com/","http://localhost:5173"],
+  origin: ["https://www.aaritjewels.com", "http://localhost:5173"],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Body parsing middleware
+// Middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Logging in development
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
@@ -44,7 +44,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/coupons', couponRoutes); // ✅ Mounted here
+app.use('/api/coupons', couponRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Aarit Jewels Backend is running 🚀' });
