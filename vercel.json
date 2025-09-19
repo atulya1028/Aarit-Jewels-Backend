@@ -1,6 +1,9 @@
 {
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://aarit-jewels-backend.vercel.app/api/$1" },
-    { "source": "/(.*)", "destination": "/" }
+  "version": 2,
+  "builds": [
+    { "src": "server.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "server.js" }
   ]
 }
